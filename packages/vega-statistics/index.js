@@ -32,6 +32,7 @@ export {
 } from './src/uniform.js';
 export {default as regressionConstant} from './src/regression/constant.js';
 export {default as regressionLinear} from './src/regression/linear.js';
+export {default as regressionWeightedLinear} from './src/regression/weightedLinear.js';
 export {default as regressionLog} from './src/regression/log.js';
 export {default as regressionExp} from './src/regression/exp.js';
 export {default as regressionPow} from './src/regression/pow.js';
