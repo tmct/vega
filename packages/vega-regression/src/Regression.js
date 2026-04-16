@@ -2,7 +2,8 @@ import partition from './partition.js';
 import {Transform, ingest} from 'vega-dataflow';
 import {
   regressionConstant, regressionExp, regressionLinear, regressionLog,
-  regressionPoly, regressionPow, regressionQuad, sampleCurve
+  regressionPoly, regressionPow, regressionQuad, regressionWeightedLinear,
+  sampleCurve
 } from 'vega-statistics';
 import {accessorName, error, extent, hasOwnProperty, inherits} from 'vega-util';
 
@@ -15,6 +16,24 @@ const Methods = {
   quad:     regressionQuad,
   poly:     regressionPoly
 };
+
+// Closed-form weighted mean for the 'constant' model.
+// Rows with negative weights are ignored.
+function weightedConstant(data, x, y, w) {
+  let Sw = 0, Swy = 0;
+  for (const d of data) {
+    const v = y(d), ww = w(d);
+    if (v == null || ww == null) continue;
+    const dv = +v, dw = +ww;
+    if (!(dv === dv) || !(dw === dw) || dw < 0) continue;
+    Sw += dw;
+    Swy += dw * dv;
+  }
+  const mean = Sw > 0 ? Swy / Sw : 0,
+        coef = [mean],
+        predict = () => mean;
+  return {coef, predict, rSquared: 0};
+}
 
 const degreesOfFreedom = (method, order) =>
   method === 'poly' ? order : method === 'quad' ? 2 : 1;
@@ -40,6 +59,7 @@ Regression.Definition = {
   'params': [
     { 'name': 'x', 'type': 'field', 'required': true },
     { 'name': 'y', 'type': 'field', 'required': true },
+    { 'name': 'weight', 'type': 'field' },
     { 'name': 'groupby', 'type': 'field', 'array': true },
     { 'name': 'method', 'type': 'string', 'default': 'linear', 'values': Object.keys(Methods) },
     { 'name': 'order', 'type': 'number', 'default': 3 },
@@ -70,12 +90,28 @@ inherits(Regression, Transform, {
         error('Invalid regression method: ' + method);
       }
 
+      if (_.weight && method !== 'linear' && method !== 'constant') {
+        error('Weighted regression is only supported for method="linear" or method="constant".');
+      }
+
       if (domain != null) {
         if (method === 'log' && domain[0] <= 0) {
           pulse.dataflow.warn('Ignoring extent with values <= 0 for log regression.');
           domain = null;
         }
       }
+
+      // wrap the weight accessor to warn (once) when rows with negative
+      // weights are encountered; the fit methods ignore such rows
+      let warnedNeg = false;
+      const weight = _.weight && (d => {
+        const v = _.weight(d);
+        if (+v < 0 && !warnedNeg) {
+          pulse.dataflow.warn('Ignoring rows with negative weights in regression transform.');
+          warnedNeg = true;
+        }
+        return v;
+      });
 
       groups.forEach(g => {
         const n = g.length;
@@ -84,7 +120,11 @@ inherits(Regression, Transform, {
           return;
         }
 
-        const model = fit(g, _.x, _.y, order);
+        const model = weight
+          ? (method === 'linear'
+              ? regressionWeightedLinear(g, _.x, _.y, weight)
+              : weightedConstant(g, _.x, _.y, weight))
+          : fit(g, _.x, _.y, order);
 
         if (_.params) {
           // if parameter vectors requested return those

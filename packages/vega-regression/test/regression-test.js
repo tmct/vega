@@ -130,3 +130,127 @@ tape('Regression outputs model parameters', t => {
 
   t.end();
 });
+
+tape('Weighted linear regression with uniform weights matches unweighted', t => {
+  const data = [0, 1, 2, 3, 4].map(i => ({x: i, y: 2 * i + 1, w: 1}));
+
+  const df = new Dataflow(),
+        col = df.add(Collect),
+        reg = df.add(Regression, {
+          method: 'linear', params: true,
+          x: field('x'), y: field('y'), weight: field('w'),
+          pulse: col
+        }),
+        out = df.add(Collect, {pulse: reg});
+
+  df.pulse(col, changeset().insert(data)).run();
+  const d = out.value[0];
+  t.ok(Math.abs(d.coef[0] - 1) < 1e-12, 'intercept');
+  t.ok(Math.abs(d.coef[1] - 2) < 1e-12, 'slope');
+  t.ok(Math.abs(d.rSquared - 1) < 1e-12, 'rSquared');
+  t.end();
+});
+
+tape('Weighted linear regression fits closed-form WLS', t => {
+  // Two points with weight=10 anchoring y=x exactly, plus a heavy outlier
+  // with tiny weight that should barely shift the fit.
+  const data = [
+    {x: 0, y: 0,  w: 10},
+    {x: 1, y: 1,  w: 10},
+    {x: 2, y: 2,  w: 10},
+    {x: 3, y: 30, w: 0.01}
+  ];
+
+  // Closed-form WLS over the same rows.
+  let Sw = 0, Swx = 0, Swy = 0, Swxx = 0, Swxy = 0;
+  for (const d of data) {
+    Sw += d.w; Swx += d.w * d.x; Swy += d.w * d.y;
+    Swxx += d.w * d.x * d.x; Swxy += d.w * d.x * d.y;
+  }
+  const expectedSlope = (Sw * Swxy - Swx * Swy) / (Sw * Swxx - Swx * Swx);
+  const expectedIntercept = (Swy - expectedSlope * Swx) / Sw;
+
+  const df = new Dataflow(),
+        col = df.add(Collect),
+        reg = df.add(Regression, {
+          method: 'linear', params: true,
+          x: field('x'), y: field('y'), weight: field('w'),
+          pulse: col
+        }),
+        out = df.add(Collect, {pulse: reg});
+
+  df.pulse(col, changeset().insert(data)).run();
+  const d = out.value[0];
+  t.ok(Math.abs(d.coef[0] - expectedIntercept) < 1e-10, 'intercept matches WLS');
+  t.ok(Math.abs(d.coef[1] - expectedSlope) < 1e-10, 'slope matches WLS');
+  // With a near-zero-weight outlier, slope should be close to 1.
+  t.ok(Math.abs(d.coef[1] - 1) < 0.05, 'fit is dominated by weighted anchors');
+  t.end();
+});
+
+tape('Weighted regression rejects unsupported methods', async t => {
+  const data = [{x: 0, y: 1, w: 1}, {x: 1, y: 2, w: 1}, {x: 2, y: 5, w: 1}];
+  const df = new Dataflow(),
+        col = df.add(Collect);
+  df.add(Regression, {
+    method: 'poly', params: true,
+    x: field('x'), y: field('y'), weight: field('w'),
+    pulse: col
+  });
+
+  let errMsg = null;
+  df.error = function(e) { errMsg = e.message; };
+
+  df.pulse(col, changeset().insert(data));
+  await df.runAsync();
+  t.ok(errMsg && /Weighted regression is only supported/.test(errMsg), 'error raised');
+  t.end();
+});
+
+tape('Weighted constant regression returns weighted mean', t => {
+  const data = [
+    {x: 0, y: 10, w: 1},
+    {x: 1, y: 20, w: 3},
+    {x: 2, y: 30, w: 0}
+  ];
+  // weighted mean = (10*1 + 20*3 + 30*0) / (1+3+0) = 70/4 = 17.5
+  const df = new Dataflow(),
+        col = df.add(Collect),
+        reg = df.add(Regression, {
+          method: 'constant', params: true,
+          x: field('x'), y: field('y'), weight: field('w'),
+          pulse: col
+        }),
+        out = df.add(Collect, {pulse: reg});
+
+  df.pulse(col, changeset().insert(data)).run();
+  const d = out.value[0];
+  t.ok(Math.abs(d.coef[0] - 17.5) < 1e-12, 'weighted mean');
+  t.end();
+});
+
+tape('Weighted linear regression ignores rows with negative weights', t => {
+  // perfect line y = 2x + 1 plus a wild outlier with negative weight;
+  // the outlier must not contribute, so the fit stays exact
+  const data = [0, 1, 2, 3, 4].map(i => ({x: i, y: 2 * i + 1, w: 1}))
+    .concat([{x: 100, y: -1000, w: -5}]);
+
+  const df = new Dataflow(),
+        col = df.add(Collect),
+        reg = df.add(Regression, {
+          method: 'linear', params: true,
+          x: field('x'), y: field('y'), weight: field('w'),
+          pulse: col
+        }),
+        out = df.add(Collect, {pulse: reg});
+
+  let warned = false;
+  df.warn = () => { warned = true; return df; };
+
+  df.pulse(col, changeset().insert(data)).run();
+  const d = out.value[0];
+  t.ok(Math.abs(d.coef[0] - 1) < 1e-12, 'intercept unaffected by negative-weight row');
+  t.ok(Math.abs(d.coef[1] - 2) < 1e-12, 'slope unaffected by negative-weight row');
+  t.ok(warned, 'emits warning for negative weights');
+  t.end();
+});
