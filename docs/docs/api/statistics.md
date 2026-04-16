@@ -187,6 +187,12 @@ Fit a linear regression model with functional form _y = a + b * x_ for the input
 - _predict_: A function that returns a regression prediction for an input _x_ value.
 - _rSquared_: The R<sup>2</sup> [coefficient of determination](https://en.wikipedia.org/wiki/Coefficient_of_determination), indicating the amount of total variance of _y_ accounted for by the model.
 
+<a name="regressionWeightedLinear" href="#regressionWeightedLinear">#</a>
+vega.<b>regressionWeightedLinear</b>(<i>data</i>, <i>x</i>, <i>y</i>, <i>w</i>)
+[<>](https://github.com/vega/vega/blob/master/packages/vega-statistics/src/regression/weightedLinear.js "Source")
+
+Fit a [weighted least squares](https://en.wikipedia.org/wiki/Weighted_least_squares) linear regression model with functional form _y = a + b * x_ for the input *data* array and corresponding *x*, *y*, and *w* (per-row weight) accessor functions. Returns the same _{coef, predict, rSquared}_ shape as `regressionLinear`; with uniform weights the result matches `regressionLinear` exactly. Rows with negative weights are ignored.
+
 <a name="regressionLog" href="#regressionLog">#</a>
 vega.<b>regressionLog</b>(<i>data</i>, <i>x</i>, <i>y</i>)
 [<>](https://github.com/vega/vega/blob/master/packages/vega-statistics/src/regression/log.js "Source")

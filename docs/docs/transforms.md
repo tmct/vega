@@ -31,6 +31,7 @@ Transforms for processing streams of data objects.
 - [`aggregate`](aggregate) - Group and summarize a data stream.
 - [`bin`](bin) - Discretize numeric values into uniform bins.
 - [`collect`](collect) - Collect and sort all data objects in a stream.
+- [`correlation`](correlation) - Compute the (optionally weighted) Pearson correlation between two fields.
 - [`countpattern`](countpattern) - Count the frequency of patterns in text strings.
 - [`cross`](cross) - Perform a cross-product of a data stream with itself.
 - [`density`](density) - Generate values drawn from a probability distribution.

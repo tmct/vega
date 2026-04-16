@@ -15,7 +15,7 @@ This transform supports parametric models for the following functional forms:
 * quadratic (`quad`): _y = a + b * x + c * x<sup>2</sup>_
 * polynomial (`poly`): _y = a + b * x + ... + k * x<sup>order</sup>_
 
-All models are fit using [ordinary least squares](https://en.wikipedia.org/wiki/Ordinary_least_squares). For non-parametric locally weighted regression, see the [loess](../loess) transform.
+All models are fit using [ordinary least squares](https://en.wikipedia.org/wiki/Ordinary_least_squares) by default. Supplying the optional _weight_ parameter switches the fit to [weighted least squares](https://en.wikipedia.org/wiki/Weighted_least_squares); _weight_ is supported only when _method_ is `linear` or `constant`, and produces an error if combined with any other method. For non-parametric locally weighted regression, see the [loess](../loess) transform. For a summary correlation coefficient between two fields (with the same optional _weight_ parameter), see the [correlation](../correlation) transform.
 
 ## Transform Parameters
 
@@ -27,6 +27,7 @@ All models are fit using [ordinary least squares](https://en.wikipedia.org/wiki/
 | method              | {% include type t="String" %}  | The type of regression model to use. One of `linear` (default), `log`, `exp`, `pow`, `quad`, or `poly`.|
 | order               | {% include type t="Number" %}  | The polynomial order (number of coefficients) for the `poly` method.|
 | extent              | {% include type t="Number[]" %}| A _[min, max]_ domain over the _x_ field specifying the starting and ending points of the generated trend line.|
+| weight              | {% include type t="Field" %}   | An optional data field of per-row weights for [weighted least squares](https://en.wikipedia.org/wiki/Weighted_least_squares). Supported only when _method_ is `linear` or `constant`. Rows with negative weights are ignored with a warning.|
 | params              | {% include type t="Boolean" %} | A boolean flag indicating if the transform should return the fit model parameters (one object per group), rather than trend line points. The resulting objects include a `coef` array of fitted coefficient values (starting with the intercept term and then including terms of increasing order) and an `rSquared` value (indicating the total variance explained by the model).|
 | as                  | {% include type t="String" %}  | The output fields for the predictor and predicted values for the line of best fit. If unspecified, the _x_ and _y_ parameter field names will be used.|
 
