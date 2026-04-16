@@ -66,6 +66,7 @@ export type Transforms =
   | PivotTransform
   | ProjectTransform
   | QuantileTransform
+  | CorrelationTransform
   | RegressionTransform
   | ResolveFilterTransform
   | SampleTransform
@@ -600,6 +601,11 @@ export interface RegressionTransform {
   type: 'regression';
   x: FieldRef;
   y: FieldRef;
+  /**
+   * An optional per-row weight field for weighted least squares. Only
+   * supported when `method` is `"linear"` or `"constant"`.
+   */
+  weight?: FieldRef;
   groupby?: FieldRef[] | SignalRef;
   method?: RegressionMethod | SignalRef;
   order?: number | SignalRef;
@@ -608,6 +614,23 @@ export interface RegressionTransform {
   as?: Vector2<string | SignalRef> | SignalRef;
 }
 export type RegressionMethod = 'linear' | 'exp' | 'log' | 'quad' | 'poly' | 'pow';
+
+export interface CorrelationTransform {
+  type: 'correlation';
+  x: FieldRef;
+  y: FieldRef;
+  /**
+   * An optional per-row weight field. When omitted, each row is treated as
+   * having weight 1 and the output is the unweighted Pearson correlation.
+   */
+  weight?: FieldRef;
+  groupby?: FieldRef[] | SignalRef;
+  /**
+   * Output field name for the (weighted) Pearson correlation coefficient.
+   * Defaults to `['corr']`.
+   */
+  as?: [string | SignalRef] | SignalRef;
+}
 
 export interface ResolveFilterTransform {
   type: 'resolvefilter';
