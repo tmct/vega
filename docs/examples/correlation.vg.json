@@ -1,0 +1,119 @@
+{
+  "$schema": "https://vega.github.io/schema/vega/v6.json",
+  "description": "Autocorrelation of Seattle daily maximum temperature at lags of 1, 3, and 6 days, broken out by month. Shows how day-to-day temperature persistence decays with lag.",
+  "padding": 5,
+  "width": 480,
+  "height": 280,
+  "autosize": "pad",
+
+  "data": [
+    {
+      "name": "weather",
+      "url": "data/seattle-weather.csv",
+      "format": {"type": "csv", "parse": {"date": "date", "temp_max": "number"}},
+      "transform": [
+        {
+          "type": "window",
+          "sort": {"field": "date"},
+          "ops":    ["lag",         "lag",         "lag"],
+          "fields": ["temp_max",    "temp_max",    "temp_max"],
+          "params": [1,             3,             6],
+          "as":     ["temp_lag_1d", "temp_lag_3d", "temp_lag_6d"]
+        },
+        {"type": "filter", "expr": "datum.temp_lag_1d != null && datum.temp_lag_3d != null && datum.temp_lag_6d != null"},
+        {"type": "formula", "as": "month", "expr": "month(datum.date) + 1"},
+        {"type": "fold", "fields": ["temp_lag_1d", "temp_lag_3d", "temp_lag_6d"], "as": ["lag", "temp_lagged"]},
+        {"type": "formula", "as": "lag_label", "expr": "{'temp_lag_1d':'1 day','temp_lag_3d':'3 days','temp_lag_6d':'6 days'}[datum.lag]"}
+      ]
+    },
+    {
+      "name": "corr_by_month_and_lag",
+      "source": "weather",
+      "transform": [
+        {
+          "type": "correlation",
+          "x": "temp_lagged",
+          "y": "temp_max",
+          "groupby": ["month", "lag_label"],
+          "as": ["corr"]
+        }
+      ]
+    }
+  ],
+
+  "scales": [
+    {
+      "name": "xscale",
+      "type": "band",
+      "domain": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "range": "width",
+      "padding": 0.05
+    },
+    {
+      "name": "yscale",
+      "type": "linear",
+      "domain": [0, 1],
+      "range": "height",
+      "nice": true
+    },
+    {
+      "name": "color",
+      "type": "ordinal",
+      "domain": ["1 day", "3 days", "6 days"],
+      "range": {"scheme": "category10"}
+    }
+  ],
+
+  "axes": [
+    {
+      "orient": "bottom",
+      "scale": "xscale",
+      "title": "Month",
+      "labelExpr": "['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][datum.value - 1]"
+    },
+    {
+      "orient": "left",
+      "scale": "yscale",
+      "title": "Autocorrelation of temp_max",
+      "format": ".2f"
+    }
+  ],
+
+  "legends": [
+    {"stroke": "color", "title": "Lag"}
+  ],
+
+  "marks": [
+    {
+      "type": "group",
+      "from": {"facet": {"data": "corr_by_month_and_lag", "name": "series", "groupby": "lag_label"}},
+      "marks": [
+        {
+          "type": "line",
+          "from": {"data": "series"},
+          "sort": {"field": "datum.month"},
+          "encode": {
+            "enter": {
+              "x": {"scale": "xscale", "field": "month", "band": 0.5},
+              "y": {"scale": "yscale", "field": "corr"},
+              "stroke": {"scale": "color", "field": "lag_label"},
+              "strokeWidth": {"value": 2}
+            }
+          }
+        },
+        {
+          "type": "symbol",
+          "from": {"data": "series"},
+          "encode": {
+            "enter": {
+              "x": {"scale": "xscale", "field": "month", "band": 0.5},
+              "y": {"scale": "yscale", "field": "corr"},
+              "fill": {"scale": "color", "field": "lag_label"},
+              "size": {"value": 50}
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

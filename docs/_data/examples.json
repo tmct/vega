@@ -28,6 +28,7 @@
         {"name": "barley-trellis-plot"},
         {"name": "regression"},
         {"name": "loess-regression"},
+        {"name": "correlation"},
         {"name": "labeled-scatter-plot"}
     ],
     "Distributions": [
